@@ -44,4 +44,3 @@ streamlit run app.py
 
 Place your math reference `.txt` files under `knowledge_base/` before
 running the RAG build step.
-
