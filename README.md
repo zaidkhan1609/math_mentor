@@ -1,3 +1,15 @@
+---
+title: Math Mentor
+emoji: "🧮"
+colorFrom: red
+colorTo: red
+sdk: streamlit
+sdk_version: "1.39.0"
+python_version: "3.10"
+app_file: app.py
+pinned: false
+---
+
 ## Multimodal AI Math Mentor (Groq Edition)
 
 This project replicates the architecture and behavior of the original
@@ -44,3 +56,27 @@ streamlit run app.py
 
 Place your math reference `.txt` files under `knowledge_base/` before
 running the RAG build step.
+
+### Where to set `GROQ_API_KEY`
+
+- **Locally**: set an environment variable before running:
+
+  - PowerShell:
+
+    ```powershell
+    $env:GROQ_API_KEY = "your_groq_key_here"
+    streamlit run app.py
+    ```
+
+  - Or create a `.env` file with:
+
+    ```text
+    GROQ_API_KEY=your_groq_key_here
+    ```
+
+- **On Hugging Face Spaces**:
+  - Go to your Space `[zaidkhan/math_mentor](https://huggingface.co/spaces/zaidkhan/math_mentor)`.
+  - Open **Settings → Variables and secrets**.
+  - Add a new **Secret** named `GROQ_API_KEY` with your key.
+  - Save and restart the Space.
+
