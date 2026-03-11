@@ -1,18 +1,27 @@
 import os
 import shutil
+from typing import List
 
 from dotenv import load_dotenv, find_dotenv
 from langchain_community.document_loaders import DirectoryLoader, TextLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_chroma import Chroma
+from langchain_core.documents import Document
+from langchain_core.retrievers import BaseRetriever
 
 from src.utils import get_embedding_model
-
 
 load_dotenv(find_dotenv())
 
 DB_PATH = "./chroma_db"
 KB_PATH = "./knowledge_base"
+
+
+class _EmptyRetriever(BaseRetriever):
+    """Retriever that returns no documents. Used when no vector DB exists."""
+
+    def _get_relevant_documents(self, query: str) -> List[Document]:
+        return []
 
 
 def initialize_vector_store():
@@ -57,20 +66,26 @@ def initialize_vector_store():
 
 
 def get_retriever():
-    """Return the retriever for the agents (lazy vector store init)."""
-    if not os.path.exists(DB_PATH):
-        raise FileNotFoundError(
-            "Vector DB not found. Run 'python -m src.rag' to build it first."
+    """Return the retriever for the agents. If no DB exists, tries to build it;
+    if still no DB (e.g. empty knowledge_base), returns an empty retriever so
+    the app still runs (solver uses no RAG context).
+    """
+    if os.path.exists(DB_PATH):
+        embedding_fn = get_embedding_model()
+        vectorstore = Chroma(
+            persist_directory=DB_PATH,
+            embedding_function=embedding_fn,
         )
+        return vectorstore.as_retriever(search_kwargs={"k": 3})
 
-    embedding_fn = get_embedding_model()
-    vectorstore = Chroma(
-        persist_directory=DB_PATH,
-        embedding_function=embedding_fn,
-    )
-    return vectorstore.as_retriever(search_kwargs={"k": 3})
+    # Try to build DB from knowledge_base (e.g. first run with files present)
+    initialize_vector_store()
+    if os.path.exists(DB_PATH):
+        return get_retriever()
+
+    # No DB (e.g. on Spaces with no knowledge_base docs) — return empty retriever
+    return _EmptyRetriever()
 
 
 if __name__ == "__main__":
     initialize_vector_store()
-

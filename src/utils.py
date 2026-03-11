@@ -2,46 +2,48 @@ import base64
 import os
 from typing import Optional
 
-from groq import Groq
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.messages import HumanMessage
-from langchain_community.embeddings import HuggingFaceEmbeddings
+from langchain_openai import ChatOpenAI
+from openai import OpenAI
 
 
-def _get_groq_client() -> Groq:
-    api_key = os.getenv("GROQ_API_KEY")
+def _get_openai_client() -> OpenAI:
+    api_key = os.getenv("OPENAI_API_KEY")
     if not api_key:
         raise RuntimeError(
-            "GROQ_API_KEY is not set. Please set it in your environment."
+            "OPENAI_API_KEY is not set. Set it in your environment or in "
+            "Hugging Face Space Settings → Variables and secrets."
         )
-    return Groq(api_key=api_key)
+    return OpenAI(api_key=api_key)
 
 
-def get_llm(model_name: str = "llama-3.1-70b-versatile") -> BaseChatModel:
-    """Return a LangChain-compatible chat model backed by Groq."""
-    from langchain_groq import ChatGroq
+def get_embedding_model():
+    """Return OpenAI embeddings for RAG (used by Chroma)."""
+    from langchain_openai import OpenAIEmbeddings
 
-    api_key = os.getenv("GROQ_API_KEY")
+    api_key = os.getenv("OPENAI_API_KEY")
     if not api_key:
-        raise RuntimeError(
-            "GROQ_API_KEY is not set. Please set it in your environment."
-        )
-
-    return ChatGroq(
+        raise RuntimeError("OPENAI_API_KEY is not set.")
+    return OpenAIEmbeddings(
+        model="text-embedding-3-small",
         api_key=api_key,
+    )
+
+
+def get_llm(model_name: str = "gpt-4o") -> BaseChatModel:
+    """Return a LangChain ChatOpenAI model (GPT-4o)."""
+    api_key = os.getenv("OPENAI_API_KEY")
+    if not api_key:
+        raise RuntimeError(
+            "OPENAI_API_KEY is not set. Set it in your environment or in "
+            "Hugging Face Space Settings → Variables and secrets."
+        )
+    return ChatOpenAI(
         model=model_name,
         temperature=0,
+        api_key=api_key,
     )
-
-
-def get_embedding_model() -> HuggingFaceEmbeddings:
-    """Return an open-source embedding model for ChromaDB."""
-    # Small, fast general-purpose embedding model.
-    model_name = os.getenv(
-        "EMBEDDING_MODEL_NAME",
-        "sentence-transformers/all-MiniLM-L6-v2",
-    )
-    return HuggingFaceEmbeddings(model_name=model_name)
 
 
 def encode_image(image_file) -> str:
@@ -50,35 +52,38 @@ def encode_image(image_file) -> str:
 
 
 def perform_ocr(image_file) -> str:
-    """Extract text from an image.
-
-    NOTE: Groq does not currently provide a vision model API.
-    For now, this function simply returns a placeholder message
-    with a suggestion to type the text manually.
-    """
-    _ = encode_image(image_file)
-    return (
-        "Image received. Vision OCR is not configured with Groq in this template.\n\n"
-        "Please type the math problem text manually, or extend `perform_ocr` to call "
-        "a vision-capable open-source or hosted model."
-    )
+    """Extract text from image using GPT-4o Vision."""
+    base64_image = encode_image(image_file)
+    llm_vision = get_llm("gpt-4o")
+    content = [
+        {
+            "type": "text",
+            "text": "Transcribe this math problem exactly into LaTeX/text. Do NOT solve it.",
+        },
+        {
+            "type": "image_url",
+            "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"},
+        },
+    ]
+    response = llm_vision.invoke([HumanMessage(content=content)])
+    return response.content
 
 
 def transcribe_audio(audio_file) -> str:
-    """Transcribe audio using Groq Whisper model."""
-    client = _get_groq_client()
+    """Transcribe audio using OpenAI Whisper."""
+    client = _get_openai_client()
+    # OpenAI API expects a file-like object with name; Streamlit uploads have it
     transcription = client.audio.transcriptions.create(
+        model="whisper-1",
         file=audio_file,
-        model="whisper-large-v3",
-        response_format="json",
     )
-    # The Groq SDK returns an object with 'text' for Whisper.
-    return transcription.text  # type: ignore[attr-defined]
+    return transcription.text
 
 
-def simple_chat_completion(prompt: str, model_name: Optional[str] = None) -> str:
+def simple_chat_completion(
+    prompt: str, model_name: Optional[str] = None
+) -> str:
     """Utility for quick one-off completions, if ever needed."""
-    llm = get_llm(model_name=model_name or "llama-3.1-70b-versatile")
+    llm = get_llm(model_name=model_name or "gpt-4o")
     result = llm.invoke([HumanMessage(content=prompt)])
     return result.content if hasattr(result, "content") else str(result)
-

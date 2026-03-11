@@ -10,73 +10,43 @@ app_file: app.py
 pinned: false
 ---
 
-## Multimodal AI Math Mentor (Groq Edition)
+## Multimodal AI Math Mentor
 
-This project replicates the architecture and behavior of the original
-`Multimodal-Math-Mentor` repository, but swaps the LLM layer to Groq /
-open‑source models.
+JEE-style math mentor with **multimodal input** (text, image OCR, audio), **LangGraph** agents, **RAG** (ChromaDB), and **self-learning memory**. Uses **OpenAI GPT-4o** for solving and verification, **GPT-4o Vision** for image OCR, and **Whisper** for audio.
 
 ### Key Features
 
 - **Streamlit frontend** (`app.py`)
-- **LangGraph multi‑agent pipeline** (`src/agents.py`)
+- **LangGraph multi-agent pipeline** (`src/agents.py`)
   - Parser → Solver → Verifier → Explainer
-- **RAG with ChromaDB** (`src/rag.py`)
-- **Multimodal input shell**
-  - Text (fully wired)
-  - Image OCR (stub; ready to connect to a vision model)
-  - Audio STT via **Groq Whisper**
-- **Self‑learning memory** (`memory.json`)
-- **Math solution verification** inside the LangGraph flow
+- **RAG with ChromaDB** (`src/rag.py`) — optional; app runs without a pre-built DB (e.g. on Spaces)
+- **Multimodal input**: Text, Image (OCR via GPT-4o Vision), Audio (Whisper)
+- **Self-learning memory** (`memory.json`)
+- **Math solution verification** in the agent flow
 
 ### Setup
 
-1. Create a virtual environment and install dependencies:
+1. Install dependencies:
 
 ```bash
 pip install -r requirements.txt
 ```
 
-2. Set environment variables (at minimum):
+2. Set **OpenAI API key**:
 
-- `GROQ_API_KEY` – your Groq API key
-- (optional) `EMBEDDING_MODEL_NAME` – override the default HF embedding model
+- **Locally**: `$env:OPENAI_API_KEY = "sk-..."` (PowerShell) or add `OPENAI_API_KEY=sk-...` to a `.env` file.
+- **Hugging Face Spaces**: **Settings → Variables and secrets** → add a **Secret** named `OPENAI_API_KEY` with your key, then restart the Space.
 
-3. Build the vector store (RAG index):
+3. (Optional) Build the vector store for RAG: add `.txt` math reference files under `knowledge_base/`, then run:
 
 ```bash
 python -m src.rag
 ```
 
-4. Run the Streamlit app:
+4. Run the app:
 
 ```bash
 streamlit run app.py
 ```
 
-Place your math reference `.txt` files under `knowledge_base/` before
-running the RAG build step.
-
-### Where to set `GROQ_API_KEY`
-
-- **Locally**: set an environment variable before running:
-
-  - PowerShell:
-
-    ```powershell
-    $env:GROQ_API_KEY = "your_groq_key_here"
-    streamlit run app.py
-    ```
-
-  - Or create a `.env` file with:
-
-    ```text
-    GROQ_API_KEY=your_groq_key_here
-    ```
-
-- **On Hugging Face Spaces**:
-  - Go to your Space `[zaidkhan/math_mentor](https://huggingface.co/spaces/zaidkhan/math_mentor)`.
-  - Open **Settings → Variables and secrets**.
-  - Add a new **Secret** named `GROQ_API_KEY` with your key.
-  - Save and restart the Space.
-
+If no vector DB exists (e.g. on Spaces with no `knowledge_base`), the app still runs and the solver uses no RAG context.

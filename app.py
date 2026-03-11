@@ -4,13 +4,9 @@ import json
 
 from src.agents import app_graph
 from src.utils import perform_ocr, transcribe_audio
-from src.rag import initialize_vector_store
 
-
-DB_PATH = "./chroma_db"
-if not os.path.exists(DB_PATH):
-    initialize_vector_store()
-
+# Vector DB is built lazily when first needed (see src.rag.get_retriever).
+# No startup init so the app runs on Spaces even without a pre-built chroma_db.
 
 st.set_page_config(page_title="Math Mentor AI", layout="wide")
 st.title("🧮 Reliable Multimodal Math Mentor")
