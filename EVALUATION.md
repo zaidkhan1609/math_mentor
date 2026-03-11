@@ -1,141 +1,196 @@
-# Evaluation Summary — Reliable Multimodal Math Mentor
+Evaluation Summary — Reliable Multimodal Math Mentor
+Scope
 
-## Scope
+This document summarizes how the Multimodal Math Mentor application satisfies the assignment requirements and how reviewers can evaluate the system.
 
-This document summarizes how the Math Mentor application meets the assignment criteria and how it can be evaluated (including by a reviewer).
+The system implements a multimodal AI tutoring pipeline capable of solving JEE-style mathematical problems using:
 
----
+RAG (Retrieval-Augmented Generation)
 
-## 1. Multimodal Input & Parsing
+Multi-agent orchestration
 
-| Criterion | Status | Notes |
-|-----------|--------|--------|
-| Image input (JPG/PNG) | ✅ | Upload → GPT-4o Vision OCR → extracted text shown |
-| Extraction preview + edit | ✅ | "Confirm Question (Edit if needed)" before Solve; caption notes HITL for extraction |
-| Audio input | ✅ | Upload MP3/WAV/M4A → Whisper ASR → transcript shown for confirmation |
-| Text input | ✅ | Direct typing |
-| Low confidence → HITL | ✅ | Parser can set `needs_clarification`; verifier can return UNCERTAIN; both surface in UI with HITL messaging |
+Human-in-the-loop (HITL)
 
----
+Memory and pattern reuse
 
-## 2. Parser Agent
+1 Multimodal Input & Parsing
+Criterion	Status	Notes
+Image input (JPG/PNG)	✅	Users upload screenshots or photos; OCR extracts text
+Extraction preview + edit	✅	"Confirm Question (Edit if needed)" allows correction
+Audio input	✅	Audio uploaded and transcribed using Whisper-style ASR
+Text input	✅	Direct typed questions supported
+Low confidence → HITL	✅	Parser/verifier can flag ambiguous input requiring human verification
+2 Parser Agent
+Criterion	Status	Notes
+Clean OCR/ASR output	✅	Parser normalizes text and extracts math expressions
+Structured output	✅	JSON format including topic, variables, constraints
+Detect ambiguity	✅	needs_clarification flag when problem incomplete
+HITL trigger	✅	UI warns user when parser flags ambiguity
 
-| Criterion | Status | Notes |
-|-----------|--------|--------|
-| Clean OCR/ASR output | ✅ | Parser prompt cleans and normalizes |
-| Structured output | ✅ | `problem_text`, `topic`, `variables`, `constraints`, `needs_clarification` (JSON from LLM) |
-| Detect ambiguity | ✅ | `needs_clarification` when input is ambiguous or incomplete |
-| HITL when needs_clarification | ✅ | UI shows warning and "please verify" when parser flags ambiguity |
+Example structured output:
 
----
+{
+  "problem_text": "...",
+  "topic": "probability",
+  "variables": ["x"],
+  "constraints": [],
+  "needs_clarification": false
+}
+3 RAG Pipeline
+Criterion	Status	Notes
+Knowledge base	✅	Curated documents in knowledge_base/
+Chunk → embed → vector store	✅	Implemented using embeddings + ChromaDB
+Top-k retrieval	⚠️	Works locally when ChromaDB is built
+Show sources in UI	✅	Sidebar displays retrieved context
+No hallucinated citations	✅	If retrieval fails, solver proceeds without fake citations
+4 Multi-Agent System
 
-## 3. RAG Pipeline
+The system uses a 5-agent architecture.
 
-| Criterion | Status | Notes |
-|-----------|--------|--------|
-| Knowledge base | ✅ | Curated `.txt` docs in `knowledge_base/` (algebra, probability, calculus, linear algebra) |
-| Chunk → embed → store | ✅ | RecursiveCharacterTextSplitter, OpenAI embeddings, ChromaDB |
-| Top-k retrieval | ✅ | k=3; context passed to Solver |
-| Show sources in UI | ✅ | Sidebar "Retrieved Context" shows RAG text |
-| No hallucinated citations | ✅ | When DB missing, retriever returns empty; UI shows "No context found" and solver still runs without fake sources |
+Agent	Role
+Parser Agent	Converts raw input to structured problem
+Intent Router Agent	Classifies topic and routes workflow
+Solver Agent	Solves problem using symbolic math and RAG
+Verifier Agent	Checks correctness and flags uncertainty
+Explainer Agent	Generates step-by-step student explanation
 
----
+Pipeline:
 
-## 4. Multi-Agent System (5 agents)
+Input
+ ↓
+Parser Agent
+ ↓
+Intent Router
+ ↓
+RAG Retriever
+ ↓
+Solver Agent
+ ↓
+Verifier Agent
+ ↓
+Explainer Agent
+5 Application UI
 
-| Agent | Role |
-|-------|------|
-| 1. Parser | Raw input → structured problem; sets `needs_clarification` |
-| 2. Intent Router | Classifies topic (algebra / probability / calculus / linear_algebra); routes to solver |
-| 3. Solver | RAG retrieval + GPT-4o → solution plan |
-| 4. Verifier / Critic | Correctness, units, edge cases; returns APPROVED / REJECTED / UNCERTAIN; UNCERTAIN → HITL |
-| 5. Explainer | Step-by-step, student-friendly explanation; incorporates verifier critique when rejected/uncertain |
+The Streamlit interface includes:
 
----
+Feature	Status
+Input selector (Text / Image / Audio)	✅
+OCR / transcript preview	✅
+Agent trace visualization	✅
+Retrieved context panel	✅
+Final answer and explanation	✅
+Confidence indicator	✅
+Feedback buttons	✅
 
-## 5. Application UI
+Feedback options:
 
-| Criterion | Status |
-|-----------|--------|
-| Input mode selector (Text / Image / Audio) | ✅ |
-| Extraction preview (OCR / transcript) | ✅ |
-| Agent trace (what ran and why) | ✅ (optional checkbox) |
-| Retrieved context panel | ✅ |
-| Final answer + explanation | ✅ |
-| Confidence indicator | ✅ (Verified / Rejected / Uncertain) |
-| ✅ correct, ❌ incorrect + feedback | ✅ (both stored in memory) |
+✅ Correct
+❌ Incorrect + comment
+6 Deployment
+Criterion	Status
+Deployed application	✅
+Reviewer-accessible link	✅
 
----
+Deployment:
 
-## 6. Deployment
+HuggingFace Space
 
-| Criterion | Status |
-|-----------|--------|
-| Deployed app (HF Spaces / etc.) | ✅ [zaidkhan/math_mentor](https://huggingface.co/spaces/zaidkhan/math_mentor) |
-| Reviewer can open link and test | ✅ |
+https://huggingface.co/spaces/zaidkhan/math_mentor
 
----
+The application can also run locally using Streamlit.
 
-## 7. Human-in-the-Loop (HITL)
+7 Human-in-the-Loop (HITL)
 
-| Trigger | Implementation |
-|---------|-----------------|
-| Low OCR/ASR confidence | User can edit "Confirm Question" before solving; parser can set `needs_clarification` |
-| Parser detects ambiguity | `needs_clarification` → UI shows "Parser flagged ambiguous input; please verify" |
-| Verifier not confident | Verifier returns UNCERTAIN → UI shows "Uncertain — please verify (HITL)" |
-| User approve / edit / reject | ✅ / ❌ buttons; approved and rejected outcomes stored in memory with feedback |
+HITL is triggered when:
 
----
+Trigger	Implementation
+Low OCR/ASR confidence	User edits extracted text
+Parser ambiguity	needs_clarification flag
+Verifier uncertainty	System asks for confirmation
+User feedback	Stored in memory
 
-## 8. Memory & Self-Learning
+Users can:
 
-| Criterion | Status | Notes |
-|-----------|--------|--------|
-| Store original input type, parsed question, context, answer, verifier outcome, feedback | ✅ | `memory.json` entries can include question, answer, topic, verifier_outcome, user_feedback |
-| Retrieve similar solved problems | ✅ | `find_similar_solution()` reuses answers for similar questions |
-| Reuse solution patterns | ✅ | Returning "From Memory" for similar question |
-| No model retraining | ✅ | Pattern reuse only |
+approve solution
 
----
+edit problem
 
-## 9. Deliverables
+reject solution
 
-| Item | Status |
-|------|--------|
-| GitHub repository | ✅ |
-| README (setup + run) | ✅ |
-| Architecture diagram (Mermaid) | ✅ (in README) |
-| .env.example | ✅ |
-| Deployed app link | ✅ (README + this doc) |
-| Demo video (3–5 min) | To be recorded by author (image → solution, audio → solution, HITL, memory reuse) |
-| Evaluation summary | ✅ (this document) |
+8 Memory & Self-Learning
 
----
+The system stores interaction history in memory.json.
 
-## How to Evaluate (Reviewer)
+Stored data includes:
 
-1. **Run locally**  
-   Clone repo → `pip install -r requirements.txt` → set `OPENAI_API_KEY` in `.env` → `streamlit run app.py`. Optionally run `python -m src.rag` to build ChromaDB.
+question
+parsed_problem
+retrieved_context
+final_answer
+verifier_outcome
+user_feedback
 
-2. **Test multimodal**  
-   - Text: type a JEE-style problem (e.g. algebra or calculus).  
-   - Image: upload a screenshot of a problem → Extract Text → confirm/edit → Solve.  
-   - Audio: upload a short question → Transcribe → confirm → Solve.
+Capabilities:
 
-3. **Check HITL**  
-   - Use an ambiguous or incomplete problem; confirm parser/verifier can set uncertain/needs_clarification and that UI shows the confidence indicator and HITL text.  
-   - Use ✅ / ❌ and confirm entries appear in `memory.json` (and that similar question later can return "From Memory").
+Feature	Status
+Store solved problems	✅
+Retrieve similar problems	⚠️ basic similarity
+Pattern reuse	⚠️ simple reuse
+Model retraining	❌ not required
 
-4. **Check RAG**  
-   With `chroma_db` built, solve a problem and confirm "Retrieved Context" in the sidebar shows relevant chunks (and that without DB the app still runs and shows "No context found" or similar).
+Memory currently uses simple matching and can be extended with embedding similarity.
 
-5. **Watch demo video**  
-   Use the 3–5 min video to see end-to-end flows (image → solution, audio → solution, HITL, memory reuse) if provided.
+9 Deliverables
+Deliverable	Status
+GitHub repository	✅
+README with setup instructions	✅
+Architecture diagram	✅
+.env.example	✅
+Deployed application	✅
+Evaluation summary	✅
+Demo video	To be recorded
+How Reviewers Can Evaluate
+1 Run Locally
+git clone <repo>
+pip install -r requirements.txt
+streamlit run app.py
+2 Test Multimodal Inputs
 
----
+Type algebra or calculus problem
 
-## Limitations
+Upload screenshot
 
-- **Spaces**: No pre-built ChromaDB on HF Spaces; RAG context is empty unless a custom build step is added. App is designed to run without DB (empty retriever).
-- **Memory similarity**: Current reuse is substring-based; embedding-based similarity could improve recall.
-- **Verifier confidence**: APPROVED/REJECTED/UNCERTAIN is derived from LLM text; no separate confidence score.
+Upload audio question
+
+3 Test HITL
+
+Provide ambiguous question and confirm UI requests clarification.
+
+4 Test RAG
+
+Build ChromaDB locally and verify retrieved context appears.
+
+5 Test Memory
+
+Solve a problem and repeat similar question to observe reuse behavior.
+
+Limitations
+Limitation	Description
+ChromaDB on Spaces	Vector database not pre-built
+Memory similarity	Currently simple text similarity
+Verifier confidence	Based on LLM reasoning rather than numerical confidence
+Overall Outcome
+
+The system successfully demonstrates:
+
+multimodal input handling
+
+RAG-based reasoning
+
+multi-agent orchestration
+
+human-in-the-loop validation
+
+memory-based learning
+
+This satisfies the key objectives of the Reliable Multimodal Math Mentor assignment.
