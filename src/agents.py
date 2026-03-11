@@ -28,10 +28,40 @@ llm = get_llm()
 ALLOWED_TOPICS = ["algebra", "probability", "calculus", "linear_algebra"]
 
 
+def _normalize_parsed_data(data: dict, raw: str) -> dict:
+    """Ensure parsed_data has required keys; accept 'problem' or 'problem_text'."""
+    if not isinstance(data, dict):
+        return {
+            "problem_text": raw,
+            "topic": "algebra",
+            "variables": [],
+            "constraints": [],
+            "needs_clarification": False,
+        }
+    # LLM may return "problem" instead of "problem_text"
+    problem_text = data.get("problem_text") or data.get("problem") or raw
+    if not isinstance(problem_text, str):
+        problem_text = str(problem_text) if problem_text else raw
+    topic = data.get("topic") or "algebra"
+    if topic not in ALLOWED_TOPICS:
+        topic = "algebra"
+    return {
+        "problem_text": problem_text,
+        "topic": topic,
+        "variables": data.get("variables") if isinstance(data.get("variables"), list) else [],
+        "constraints": data.get("constraints") if isinstance(data.get("constraints"), list) else [],
+        "needs_clarification": bool(data.get("needs_clarification", False)),
+    }
+
+
 def parser_node(state: AgentState):
     """Agent 1: Parser - clean input, structured problem, detect ambiguity."""
     print("--- 1. PARSER AGENT ---")
     raw = (state.get("input_text") or "").strip()
+    if not raw:
+        data = _normalize_parsed_data({}, raw)
+        return {"parsed_data": data, "messages": ["Parser: No input."]}
+
     prompt = ChatPromptTemplate.from_messages(
         [
             (
@@ -46,28 +76,26 @@ def parser_node(state: AgentState):
             ("user", "Raw input:\n{raw}"),
         ]
     )
-    response = llm.invoke(prompt.format(raw=raw))
-    text = response.content.strip()
+    try:
+        response = llm.invoke(prompt.format(raw=raw))
+        text = (response.content or "").strip()
+    except Exception:
+        data = _normalize_parsed_data({}, raw)
+        return {"parsed_data": data, "messages": ["Parser: Fallback (LLM error)."]}
+
     # Extract JSON (handle markdown code blocks)
     if "```" in text:
-        text = text.split("```")[1].replace("json", "").strip()
+        parts = text.split("```")
+        for p in parts[1:]:
+            p = p.replace("json", "").strip()
+            if p.startswith("{"):
+                text = p
+                break
     try:
         data = json.loads(text)
     except json.JSONDecodeError:
-        data = {
-            "problem_text": raw,
-            "topic": "algebra",
-            "variables": [],
-            "constraints": [],
-            "needs_clarification": False,
-        }
-    data.setdefault("problem_text", raw)
-    data.setdefault("topic", "algebra")
-    data.setdefault("variables", [])
-    data.setdefault("constraints", [])
-    data.setdefault("needs_clarification", False)
-    if data["topic"] not in ALLOWED_TOPICS:
-        data["topic"] = "algebra"
+        data = {}
+    data = _normalize_parsed_data(data, raw)
     return {"parsed_data": data, "messages": ["Parser: Structured problem."]}
 
 
@@ -84,7 +112,10 @@ def solver_node(state: AgentState):
     """Agent 3: Solver - retrieve RAG context and draft solution."""
     print("--- 3. SOLVER AGENT ---")
     parsed = state.get("parsed_data") or {}
-    problem = parsed.get("problem_text", state.get("input_text", ""))
+    problem = (parsed.get("problem_text") or parsed.get("problem") or
+               state.get("input_text") or "")
+    if not isinstance(problem, str):
+        problem = str(problem) if problem else ""
 
     retriever = get_retriever()
     docs = retriever.invoke(problem)
@@ -107,7 +138,10 @@ def verifier_node(state: AgentState):
     """Agent 4: Verifier/Critic - check correctness, units, edge cases; can trigger HITL if uncertain."""
     print("--- 4. VERIFIER AGENT ---")
     parsed = state.get("parsed_data") or {}
-    problem = parsed.get("problem_text", "")
+    problem = (parsed.get("problem_text") or parsed.get("problem") or
+               state.get("input_text") or "")
+    if not isinstance(problem, str):
+        problem = str(problem) if problem else ""
     solution = state.get("solution_plan", "")
 
     prompt = ChatPromptTemplate.from_messages(
