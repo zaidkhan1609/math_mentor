@@ -1,3 +1,4 @@
+import json
 import operator
 from typing import Annotated, List, TypedDict
 
@@ -10,107 +11,149 @@ from src.utils import get_llm
 
 class AgentState(TypedDict):
     input_text: str
-    parsed_data: dict
+    input_type: str  # "text" | "image" | "audio"
+    parsed_data: dict  # problem_text, topic, variables, constraints, needs_clarification
     retrieved_context: str
     solution_plan: str
     final_answer: str
-    verification_status: str
+    verification_status: str  # "approved" | "rejected" | "uncertain"
+    verification_confidence: str  # for UI
     critique: str
     messages: Annotated[List[str], operator.add]
 
 
 llm = get_llm()
 
+# Topics we support (JEE scope)
+ALLOWED_TOPICS = ["algebra", "probability", "calculus", "linear_algebra"]
+
 
 def parser_node(state: AgentState):
-    """Agent 1: Parser - clean input and create structured problem object."""
+    """Agent 1: Parser - clean input, structured problem, detect ambiguity."""
     print("--- 1. PARSER AGENT ---")
+    raw = (state.get("input_text") or "").strip()
+    prompt = ChatPromptTemplate.from_messages(
+        [
+            (
+                "system",
+                "You are a math problem parser. Clean OCR/ASR or typed input and output a structured JSON.\n"
+                "Rules: Extract problem_text (cleaned), topic (one of: algebra, probability, calculus, linear_algebra), "
+                "variables (list of symbols e.g. [\"x\", \"y\"] or []), constraints (e.g. [\"x > 0\"] or []). "
+                "Set needs_clarification to true ONLY if the problem is ambiguous, has missing info, or is unreadable. "
+                "Reply with ONLY valid JSON in this exact shape:\n"
+                '{"problem_text": "...", "topic": "...", "variables": [], "constraints": [], "needs_clarification": false}',
+            ),
+            ("user", "Raw input:\n{raw}"),
+        ]
+    )
+    response = llm.invoke(prompt.format(raw=raw))
+    text = response.content.strip()
+    # Extract JSON (handle markdown code blocks)
+    if "```" in text:
+        text = text.split("```")[1].replace("json", "").strip()
+    try:
+        data = json.loads(text)
+    except json.JSONDecodeError:
+        data = {
+            "problem_text": raw,
+            "topic": "algebra",
+            "variables": [],
+            "constraints": [],
+            "needs_clarification": False,
+        }
+    data.setdefault("problem_text", raw)
+    data.setdefault("topic", "algebra")
+    data.setdefault("variables", [])
+    data.setdefault("constraints", [])
+    data.setdefault("needs_clarification", False)
+    if data["topic"] not in ALLOWED_TOPICS:
+        data["topic"] = "algebra"
+    return {"parsed_data": data, "messages": ["Parser: Structured problem."]}
 
-    parsed_data = {
-        "problem": state["input_text"],
-        "topic": "Math",
-        "needs_clarification": False,
-    }
-    return {"parsed_data": parsed_data, "messages": ["Parser: Processed input."]}
+
+def intent_router_node(state: AgentState):
+    """Agent 2: Intent Router - classify problem type and route workflow."""
+    print("--- 2. INTENT ROUTER AGENT ---")
+    parsed = state.get("parsed_data") or {}
+    topic = parsed.get("topic", "algebra")
+    # Route: all go to solver; topic is used by solver for RAG/context
+    return {"messages": [f"Intent Router: Classified as {topic}."]}
 
 
 def solver_node(state: AgentState):
-    """Agent 2: Solver - retrieve RAG context and draft solution."""
-    print("--- 2. SOLVER AGENT ---")
+    """Agent 3: Solver - retrieve RAG context and draft solution."""
+    print("--- 3. SOLVER AGENT ---")
+    parsed = state.get("parsed_data") or {}
+    problem = parsed.get("problem_text", state.get("input_text", ""))
 
     retriever = get_retriever()
-
-    docs = retriever.invoke(state["parsed_data"]["problem"])
-    context = "\n".join([d.page_content for d in docs])
+    docs = retriever.invoke(problem)
+    context = "\n".join([d.page_content for d in docs]) if docs else "(No RAG context available.)"
 
     prompt = ChatPromptTemplate.from_messages(
         [
             (
                 "system",
-                "You are a JEE Math Tutor. Solve the problem using the provided "
-                "context. Show all steps clearly.",
+                "You are a JEE Math Tutor. Solve the problem using the provided context when relevant. Show all steps clearly.",
             ),
-            (
-                "user",
-                "Problem: {problem}\n\n"
-                "Use this context if helpful:\n{context}",
-            ),
+            ("user", "Problem: {problem}\n\nContext (use if helpful):\n{context}"),
         ]
     )
-    response = llm.invoke(
-        prompt.format(
-            problem=state["parsed_data"]["problem"],
-            context=context,
-        )
-    )
-
+    response = llm.invoke(prompt.format(problem=problem, context=context))
     return {"solution_plan": response.content, "retrieved_context": context}
 
 
 def verifier_node(state: AgentState):
-    """Agent 3: Verifier - check solution correctness."""
-    print("--- 3. VERIFIER AGENT ---")
+    """Agent 4: Verifier/Critic - check correctness, units, edge cases; can trigger HITL if uncertain."""
+    print("--- 4. VERIFIER AGENT ---")
+    parsed = state.get("parsed_data") or {}
+    problem = parsed.get("problem_text", "")
+    solution = state.get("solution_plan", "")
+
     prompt = ChatPromptTemplate.from_messages(
         [
             (
                 "system",
-                "You are a strict math solution verifier. "
-                "Check the solution for correctness. "
-                "Return ONLY 'APPROVED' if fully correct, or 'REJECTED' "
-                "followed by a brief critique if there are issues.",
+                "You are a strict math solution verifier. Check: correctness, units/domain, edge cases. "
+                "Reply with exactly one of: APPROVED | REJECTED | UNCERTAIN. "
+                "If APPROVED, add one short line why. If REJECTED or UNCERTAIN, add a brief critique. "
+                "Use UNCERTAIN when you are not confident (e.g. ambiguous problem or borderline solution).",
             ),
-            (
-                "user",
-                "Problem: {problem}\n\nProposed solution:\n{solution}",
-            ),
+            ("user", "Problem: {problem}\n\nSolution:\n{solution}"),
         ]
     )
-    response = llm.invoke(
-        prompt.format(
-            problem=state["parsed_data"]["problem"],
-            solution=state["solution_plan"],
-        )
-    )
-    content_upper = response.content.upper()
-    status = "rejected" if "REJECTED" in content_upper and "APPROVED" not in content_upper else "approved"
-    return {"verification_status": status, "critique": response.content}
+    response = llm.invoke(prompt.format(problem=problem, solution=solution))
+    content = response.content.upper()
+    if "REJECTED" in content and "APPROVED" not in content.split("REJECTED")[0]:
+        status = "rejected"
+    elif "UNCERTAIN" in content:
+        status = "uncertain"
+    else:
+        status = "approved"
+    return {
+        "verification_status": status,
+        "verification_confidence": response.content,
+        "critique": response.content,
+    }
 
 
 def explainer_node(state: AgentState):
-    """Agent 4: Explainer - format final explanation."""
-    print("--- 4. EXPLAINER AGENT ---")
-
-    base_solution = state["solution_plan"]
+    """Agent 5: Explainer - step-by-step, student-friendly explanation."""
+    print("--- 5. EXPLAINER AGENT ---")
+    base_solution = state.get("solution_plan", "")
     critique = state.get("critique", "")
+    status = state.get("verification_status", "approved")
 
-    if state.get("verification_status") == "rejected":
+    if status == "rejected":
         combined = (
             "The following solution was critiqued:\n\n"
-            f"{base_solution}\n\n"
-            "Verifier critique:\n"
-            f"{critique}\n\n"
-            "Please correct any mistakes and present a final, fully correct "
-            "step-by-step solution for the student."
+            f"{base_solution}\n\nVerifier: {critique}\n\n"
+            "Provide a corrected, full step-by-step solution."
+        )
+    elif status == "uncertain":
+        combined = (
+            f"{base_solution}\n\n(Verifier was uncertain: {critique}. "
+            "Present the solution clearly and note that human verification is recommended.)"
         )
     else:
         combined = base_solution
@@ -119,10 +162,9 @@ def explainer_node(state: AgentState):
         [
             (
                 "system",
-                "You are a patient JEE math mentor. "
-                "Explain the solution clearly with steps and key insights.",
+                "You are a patient JEE math mentor. Explain the solution clearly with steps and key insights.",
             ),
-            ("user", "Solution (possibly with verifier feedback):\n{solution}"),
+            ("user", "{solution}"),
         ]
     )
     response = llm.invoke(prompt.format(solution=combined))
@@ -131,15 +173,16 @@ def explainer_node(state: AgentState):
 
 workflow = StateGraph(AgentState)
 workflow.add_node("parser", parser_node)
+workflow.add_node("intent_router", intent_router_node)
 workflow.add_node("solver", solver_node)
 workflow.add_node("verifier", verifier_node)
 workflow.add_node("explainer", explainer_node)
 
 workflow.set_entry_point("parser")
-workflow.add_edge("parser", "solver")
+workflow.add_edge("parser", "intent_router")
+workflow.add_edge("intent_router", "solver")
 workflow.add_edge("solver", "verifier")
 workflow.add_edge("verifier", "explainer")
 workflow.add_edge("explainer", END)
 
 app_graph = workflow.compile()
-

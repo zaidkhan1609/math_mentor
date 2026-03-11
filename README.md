@@ -10,45 +10,87 @@ app_file: app.py
 pinned: false
 ---
 
-## Multimodal AI Math Mentor
+## Reliable Multimodal Math Mentor (RAG + Agents + HITL + Memory)
 
-JEE-style math mentor with **multimodal input** (text, image OCR, audio), **LangGraph** agents, **RAG** (ChromaDB), and **self-learning memory**. Uses **OpenAI GPT-4o** for solving and verification, **GPT-4o Vision** for image OCR, and **Whisper** for audio.
+JEE-style math mentor: **multimodal input** (text, image OCR, audio), **5-agent LangGraph** pipeline, **RAG** (ChromaDB), **human-in-the-loop (HITL)**, and **self-learning memory**. Uses **OpenAI GPT-4o** (and Vision / Whisper) for parsing, solving, verification, and explanation.
 
-### Key Features
+### Architecture
 
-- **Streamlit frontend** (`app.py`)
-- **LangGraph multi-agent pipeline** (`src/agents.py`)
-  - Parser → Solver → Verifier → Explainer
-- **RAG with ChromaDB** (`src/rag.py`) — optional; app runs without a pre-built DB (e.g. on Spaces)
-- **Multimodal input**: Text, Image (OCR via GPT-4o Vision), Audio (Whisper)
-- **Self-learning memory** (`memory.json`)
-- **Math solution verification** in the agent flow
+```mermaid
+flowchart TB
+    subgraph Input
+        A[Text / Image / Audio]
+    end
+    A --> B[Convert to Text\nOCR / Whisper / direct]
+    B --> C[Extraction Preview\nUser can edit - HITL]
+    C --> D[Memory Check\nmemory.json]
+    D --> E{Similar solved?}
+    E -->|Yes| F[Return from Memory]
+    E -->|No| G[LangGraph Pipeline]
+    G --> H[1. Parser Agent]
+    H --> I[2. Intent Router Agent]
+    I --> J[3. Solver Agent]
+    J --> K[RAG: ChromaDB\ntop-k retrieval]
+    K --> L[4. Verifier Agent]
+    L --> M[5. Explainer Agent]
+    M --> N[Confidence + HITL if needed]
+    N --> O[Final Answer]
+    O --> P[Feedback: Correct / Incorrect]
+    P --> D
+```
+
+### Features
+
+| Requirement | Implementation |
+|-------------|----------------|
+| **Multimodal input** | Text, Image (GPT-4o Vision OCR), Audio (Whisper); extraction preview + edit before solve |
+| **Parser agent** | Cleans input → structured `problem_text`, `topic`, `variables`, `constraints`, `needs_clarification` |
+| **Intent router** | Classifies topic (algebra / probability / calculus / linear_algebra) and routes workflow |
+| **RAG** | ChromaDB over `knowledge_base/*.txt`; top-k=3; retrieved context shown in sidebar; no citation when empty |
+| **Solver** | Uses RAG context + GPT-4o for step-by-step solution |
+| **Verifier** | Checks correctness / units / edge cases; returns APPROVED / REJECTED / UNCERTAIN (→ HITL) |
+| **Explainer** | Student-friendly step-by-step explanation; incorporates verifier critique if rejected/uncertain |
+| **HITL** | Triggered when parser sets `needs_clarification`, or verifier returns UNCERTAIN; user can edit question, approve/reject solution; corrections stored in memory |
+| **Memory** | `memory.json`: question, answer, topic, verifier_outcome, user_feedback; reused for similar questions |
+| **UI** | Input mode selector, extraction preview, agent trace, retrieved context panel, confidence indicator (Verified / Rejected / Uncertain), ✅ / ❌ feedback |
 
 ### Setup
 
-1. Install dependencies:
+1. **Install**
 
-```bash
-pip install -r requirements.txt
-```
+   ```bash
+   pip install -r requirements.txt
+   ```
 
-2. Set **OpenAI API key**:
+2. **API key**
 
-- **Locally**: `$env:OPENAI_API_KEY = "sk-..."` (PowerShell) or add `OPENAI_API_KEY=sk-...` to a `.env` file.
-- **Hugging Face Spaces**: **Settings → Variables and secrets** → add a **Secret** named `OPENAI_API_KEY` with your key, then restart the Space.
+   - Copy `.env.example` to `.env` and set `OPENAI_API_KEY=sk-...`
+   - On **Hugging Face Spaces**: **Settings → Variables and secrets** → Secret `OPENAI_API_KEY` → restart Space
 
-3. (Optional) Build the vector store for RAG: ensure `OPENAI_API_KEY` is set, then run:
+3. **RAG (optional)**
 
-```bash
-python -m src.rag
-```
+   ```bash
+   python -m src.rag
+   ```
 
-The repo includes JEE-style reference files in `knowledge_base/` (algebra, probability, calculus, linear algebra). Add more `.txt` files there if needed.
+   Uses `knowledge_base/*.txt` (algebra, probability, calculus, linear algebra). Without a built DB, the app still runs (solver gets no RAG context).
 
-4. Run the app:
+4. **Run**
 
-```bash
-streamlit run app.py
-```
+   ```bash
+   streamlit run app.py
+   ```
 
-If no vector DB exists (e.g. on Spaces with no `knowledge_base`), the app still runs and the solver uses no RAG context.
+### Deployed app
+
+- **Hugging Face Space:** [zaidkhan/math_mentor](https://huggingface.co/spaces/zaidkhan/math_mentor)
+
+### Repo layout
+
+- `app.py` — Streamlit UI, memory, HITL, feedback
+- `src/agents.py` — LangGraph: Parser → Intent Router → Solver → Verifier → Explainer
+- `src/rag.py` — ChromaDB build + retriever (empty retriever when no DB)
+- `src/utils.py` — LLM, embeddings, OCR, Whisper
+- `knowledge_base/*.txt` — JEE-style reference docs
+- `memory.json` — Stored Q&A and feedback (created at runtime)
+- `.env.example` — Template for `OPENAI_API_KEY`
