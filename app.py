@@ -16,7 +16,7 @@ MEMORY_FILE = "memory.json"
 
 
 def load_memory():
-    """Load memory entries (each may have question, answer, input_type, topic, verifier_outcome, user_feedback)."""
+    """Load memory entries. Each can have: question, answer, input_type, parsed_question, retrieved_context_snippet, verifier_outcome, user_feedback, topic."""
     if os.path.exists(MEMORY_FILE):
         with open(MEMORY_FILE, "r", encoding="utf-8") as f:
             return json.load(f)
@@ -24,25 +24,36 @@ def load_memory():
 
 
 def save_memory(question, answer, meta=None):
-    """Save a verified/corrected entry. meta can include input_type, topic, verifier_outcome, user_feedback."""
+    """Save entry with full schema: original input (question), answer, input_type, parsed_question, retrieved_context_snippet, verifier_outcome, user_feedback, topic."""
     history = load_memory()
     entry = {"question": question, "answer": answer}
     if meta:
-        entry.update({k: v for k, v in meta.items() if v is not None})
+        for k, v in meta.items():
+            if v is None:
+                continue
+            if k == "retrieved_context" and len(str(v)) > 500:
+                entry["retrieved_context_snippet"] = str(v)[:500] + "..."
+            elif k == "parsed_data" and isinstance(v, dict):
+                entry["parsed_question"] = v.get("problem_text") or question
+                entry["topic"] = v.get("topic")
+            else:
+                entry[k] = v
     history.append(entry)
     with open(MEMORY_FILE, "w", encoding="utf-8") as f:
         json.dump(history, f, ensure_ascii=False, indent=2)
 
 
 def find_similar_solution(user_input):
-    """Memory reuse: return answer if we have a similar solved problem."""
+    """Memory reuse: return (answer, matched_entry) if we have a similar solved problem, else (None, None)."""
     history = load_memory()
     user_lower = user_input.strip().lower()
     for entry in history:
-        q = (entry.get("question") or "").strip().lower()
+        q = (entry.get("question") or entry.get("parsed_question") or "").strip().lower()
+        if not q:
+            continue
         if user_lower in q or q in user_lower:
-            return entry.get("answer")
-    return None
+            return entry.get("answer"), entry
+    return None, None
 
 
 with st.sidebar:
@@ -52,6 +63,15 @@ with st.sidebar:
         value=True,
         help="See what the agents are thinking",
     )
+    memory_entries = load_memory()
+    st.caption(f"🧠 **Memory:** {len(memory_entries)} entries")
+    with st.expander("How to test memory"):
+        st.markdown(
+            "1. **Solve** a problem (e.g. *integrate 7x^7+8x+4*).  \n"
+            "2. Click **✅** on the answer to **save to memory**.  \n"
+            "3. Ask the **same or very similar** question again.  \n"
+            "4. You should see **\"Answer from memory (pattern reuse)\"** and the stored solution."
+        )
     st.markdown("### Retrieved Context")
     context_placeholder = st.empty()
 
@@ -105,18 +125,23 @@ if st.session_state.input_text:
     st.caption("Edit the text above if OCR/transcript is wrong (HITL: extraction preview).")
 
     if st.button("🚀 Solve"):
-        cached_answer = find_similar_solution(user_input)
+        cached_answer, matched_entry = find_similar_solution(user_input)
 
-        if cached_answer:
-            st.success("🧠 I remembered a similar problem!")
+        if cached_answer is not None:
+            st.success("🧠 Using memory — similar problem found (pattern reuse).")
+            input_src = (matched_entry or {}).get("input_type") or "text"
+            memory_note = (
+                "📌 **Answer from memory (pattern reuse)** — I've seen a similar problem before. "
+                f"Reusing stored solution _(originally from {input_src} input)_.\n\n---\n\n"
+            )
             st.session_state.messages.append(
                 {"role": "user", "content": user_input}
             )
             st.session_state.messages.append(
                 {
                     "role": "assistant",
-                    "content": f"**[From Memory]**\n\n{cached_answer}",
-                    "meta": {"confidence": "memory", "hitl": None},
+                    "content": memory_note + cached_answer,
+                    "meta": {"confidence": "memory", "from_memory": True},
                 }
             )
         else:
@@ -140,6 +165,7 @@ if st.session_state.input_text:
 
                     final_state = app_graph.invoke(inputs)
                     st.session_state.last_final_state = final_state
+                    st.session_state.last_input_type = input_method.lower()
 
                     if show_trace:
                         ver_status = final_state.get("verification_status", "approved")
@@ -193,6 +219,8 @@ if st.session_state.input_text:
                                 "needs_clarification": needs_clarification,
                                 "parsed_data": parsed,
                                 "verifier_outcome": final_state.get("verification_confidence"),
+                                "input_type": input_method.lower(),
+                                "retrieved_context": rag_context[:500] if rag_context else None,
                             },
                         }
                     )
@@ -220,9 +248,12 @@ for i, msg in enumerate(st.session_state.messages):
                         if fs and i == len(st.session_state.messages) - 1:
                             parsed = fs.get("parsed_data") or {}
                             meta = {
+                                "input_type": meta.get("input_type"),
                                 "topic": parsed.get("topic"),
                                 "verifier_outcome": fs.get("verification_confidence"),
                                 "user_feedback": "correct",
+                                "retrieved_context": fs.get("retrieved_context"),
+                                "parsed_data": parsed,
                             }
                         else:
                             meta = {
@@ -241,6 +272,7 @@ for i, msg in enumerate(st.session_state.messages):
                             question,
                             msg["content"],
                             meta={
+                                "input_type": st.session_state.get("last_input_type"),
                                 "topic": (fs.get("parsed_data") or {}).get("topic"),
                                 "verifier_outcome": fs.get("verification_confidence"),
                                 "user_feedback": "incorrect",
