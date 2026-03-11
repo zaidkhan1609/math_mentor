@@ -1,0 +1,36 @@
+JEE-STYLE PROBABILITY — FORMULAS AND CONCEPTS
+
+Basic definitions
+- Sample space S: set of all outcomes. Event: subset of S. P(E) = n(E)/n(S) when outcomes are equally likely.
+- P(E) lies between 0 and 1. P(S) = 1, P(ϕ) = 0.
+- P(E') = 1 - P(E). P(A ∪ B) = P(A) + P(B) - P(A ∩ B).
+
+Conditional probability and independence
+- P(A|B) = P(A ∩ B) / P(B), when P(B) > 0.
+- Multiplication rule: P(A ∩ B) = P(B) P(A|B) = P(A) P(B|A).
+- A and B independent ⟺ P(A ∩ B) = P(A) P(B) ⟺ P(A|B) = P(A) when P(B) > 0.
+- For three events: P(A ∩ B ∩ C) = P(A) P(B|A) P(C|A∩B). If A,B,C mutually independent: P(A∩B∩C) = P(A)P(B)P(C).
+
+Total probability and Bayes theorem
+- Partition: B1, B2, ..., Bn mutually exclusive, exhaustive. Then P(A) = Σ P(Bi) P(A|Bi).
+- Bayes: P(Bk|A) = P(Bk) P(A|Bk) / Σ P(Bi) P(A|Bi). Used when we observe outcome A and want to update probability of cause Bk.
+
+Random variables (discrete, JEE level)
+- X: S → R. Probability distribution: list P(X = xi). Σ P(X = xi) = 1.
+- Mean E(X) = Σ xi P(X = xi). Variance Var(X) = E(X²) - [E(X)]² = Σ xi² P(X=xi) - (E(X))².
+- Bernoulli trial: P(success) = p, P(failure) = 1-p. Single trial.
+
+Binomial distribution
+- n independent Bernoulli trials, P(success) = p. X = number of successes.
+- P(X = r) = C(n,r) p^r (1-p)^(n-r), r = 0,1,...,n.
+- E(X) = np, Var(X) = np(1-p).
+
+Classical problems (JEE style)
+- Dice: fair die, P(particular outcome) = 1/6; sum of two dice: count favourable / 36.
+- Cards: 52 cards, 26 red, 26 black; 4 suits. P(drawing a king) = 4/52 = 1/13.
+- Balls and bags: with/without replacement; conditional probability when order matters.
+- At least one type: P(at least one) = 1 - P(none). Often 1 - (1-p)^n for n trials.
+
+Addition and complement
+- P(A ∪ B ∪ C) = P(A) + P(B) + P(C) - P(A∩B) - P(B∩C) - P(C∩A) + P(A∩B∩C).
+- P(exactly one of A,B,C) = P(A) + P(B) + P(C) - 2P(A∩B) - 2P(B∩C) - 2P(C∩A) + 3P(A∩B∩C) when symmetric; derive from Venn or formula.

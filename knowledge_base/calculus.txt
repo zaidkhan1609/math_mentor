@@ -1,0 +1,32 @@
+JEE-STYLE CALCULUS — LIMITS, DERIVATIVES, SIMPLE OPTIMIZATION
+
+Limits (standard results and techniques)
+- lim_{x→0} sin x / x = 1. lim_{x→0} (1 - cos x) / x = 0; (1 - cos x)/x² → 1/2 as x→0.
+- lim_{x→0} (e^x - 1)/x = 1. lim_{x→0} (a^x - 1)/x = ln a.
+- lim_{x→0} (1 + x)^(1/x) = e. lim_{n→∞} (1 + 1/n)^n = e.
+- lim_{x→0} log(1+x)/x = 1 (natural log). Rationalization: multiply numerator and denominator by conjugate to remove roots.
+- Limit at infinity: divide numerator and denominator by highest power of x. lim_{x→∞} 1/x^p = 0 for p > 0.
+
+Differentiation (formulas)
+- d/dx (x^n) = n x^(n-1). d/dx (constant) = 0.
+- d/dx (sin x) = cos x, d/dx (cos x) = -sin x, d/dx (tan x) = sec² x.
+- d/dx (e^x) = e^x, d/dx (ln x) = 1/x, d/dx (a^x) = a^x ln a.
+- Product rule: (uv)' = u'v + uv'. Quotient rule: (u/v)' = (u'v - uv')/v².
+- Chain rule: d/dx f(g(x)) = f'(g(x)) g'(x). Parametric: dy/dx = (dy/dt)/(dx/dt).
+
+Applications of derivatives
+- Tangent line at (x0, y0): y - y0 = f'(x0)(x - x0). Normal: slope = -1/f'(x0) when f'(x0) ≠ 0.
+- Monotonicity: f'(x) > 0 ⟹ f increasing; f'(x) < 0 ⟹ f decreasing.
+- Critical points: solve f'(x) = 0 or where f' does not exist. Second derivative test: f''(x0) < 0 ⟹ local max; f''(x0) > 0 ⟹ local min at x0.
+
+Simple optimization (JEE level)
+- To maximize or minimize f(x): find critical points in domain, evaluate f at critical points and at boundary points (if closed interval); largest value is max, smallest is min.
+- Geometric problems: express quantity (area, volume, length) as function of one variable, differentiate, set derivative = 0, check second derivative or endpoints.
+- Common: rectangle of given perimeter with maximum area (square); two positive numbers with fixed sum and maximum product (equal numbers).
+
+Continuity
+- f continuous at x = a ⟺ lim_{x→a} f(x) = f(a). f must be defined at a, limit must exist, and equal f(a).
+- Polynomials and rational functions (where denominator ≠ 0) are continuous. Composition of continuous functions is continuous.
+
+Intermediate value property
+- If f continuous on [a,b] and k between f(a) and f(b), then there exists c in (a,b) such that f(c) = k. Used to show existence of roots.

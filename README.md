@@ -37,11 +37,13 @@ pip install -r requirements.txt
 - **Locally**: `$env:OPENAI_API_KEY = "sk-..."` (PowerShell) or add `OPENAI_API_KEY=sk-...` to a `.env` file.
 - **Hugging Face Spaces**: **Settings → Variables and secrets** → add a **Secret** named `OPENAI_API_KEY` with your key, then restart the Space.
 
-3. (Optional) Build the vector store for RAG: add `.txt` math reference files under `knowledge_base/`, then run:
+3. (Optional) Build the vector store for RAG: ensure `OPENAI_API_KEY` is set, then run:
 
 ```bash
 python -m src.rag
 ```
+
+The repo includes JEE-style reference files in `knowledge_base/` (algebra, probability, calculus, linear algebra). Add more `.txt` files there if needed.
 
 4. Run the app:
 

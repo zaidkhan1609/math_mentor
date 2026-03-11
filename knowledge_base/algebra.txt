@@ -1,0 +1,42 @@
+JEE-STYLE ALGEBRA — FORMULAS AND KEY CONCEPTS
+
+Quadratic equations and expressions
+- Standard form: ax² + bx + c = 0. Roots: x = (-b ± √(b² - 4ac)) / (2a).
+- Discriminant D = b² - 4ac: D > 0 two distinct real roots, D = 0 equal roots, D < 0 no real roots.
+- Sum of roots = -b/a, product of roots = c/a. For α, β: α + β = -b/a, αβ = c/a.
+- Formation: equation with roots α, β is x² - (α+β)x + αβ = 0.
+
+Progressions
+- AP: nth term T_n = a + (n-1)d; sum S_n = n/2 [2a + (n-1)d] = n/2 (first + last).
+- GP: nth term T_n = a r^(n-1); sum S_n = a(1-r^n)/(1-r) for r≠1; infinite sum a/(1-r) when |r|<1.
+- Sum of first n natural numbers: n(n+1)/2. Sum of squares: n(n+1)(2n+1)/6. Sum of cubes: [n(n+1)/2]².
+
+Binomial theorem and expansions
+- (a+b)^n = Σ C(n,r) a^(n-r) b^r for r = 0 to n. C(n,r) = n! / (r!(n-r)!).
+- C(n,0) + C(n,1) + ... + C(n,n) = 2^n. C(n,0) - C(n,1) + ... = 0.
+- General term T_{r+1} = C(n,r) a^(n-r) b^r. Middle term: when n is even, (n/2 + 1)th; when n is odd, (n+1)/2 and (n+3)/2.
+
+Sequences and series (JEE level)
+- Arithmetic mean: (a+b)/2. Geometric mean: √(ab) for a,b > 0. AM ≥ GM, equality when a = b.
+- For n positive numbers, AM ≥ GM ≥ HM; equality iff all equal.
+- Common series: 1 + 2 + ... + n = n(n+1)/2; 1² + 2² + ... + n² = n(n+1)(2n+1)/6.
+
+Equations and inequalities
+- |x| < a ⟺ -a < x < a. |x| > a ⟺ x < -a or x > a.
+- |a + b| ≤ |a| + |b|; |a - b| ≥ ||a| - |b||.
+- Quadratic in x: ax² + bx + c > 0 for all x if a > 0 and D < 0.
+
+Logarithms and exponents
+- log_a(mn) = log_a m + log_a n; log_a(m/n) = log_a m - log_a n; log_a m^p = p log_a m.
+- a^x = e^(x ln a). Change of base: log_a b = log_c b / log_c a.
+- For JEE: often combine with quadratic or inequalities; domain of log requires positive arguments.
+
+Complex numbers (basics)
+- i² = -1. z = x + iy; modulus |z| = √(x²+y²); argument arg(z) for z≠0.
+- Conjugate: z̄ = x - iy; z z̄ = |z|². Multiplication and division in polar form: multiply moduli, add arguments; divide moduli, subtract arguments.
+- De Moivre: (cos θ + i sin θ)^n = cos(nθ) + i sin(nθ). Useful for roots of unity and series.
+
+Permutations and combinations (counting)
+- P(n,r) = n!/(n-r)!. C(n,r) = n!/(r!(n-r)!) = C(n, n-r).
+- Number of ways to arrange n objects with n1, n2, ... alike: n! / (n1! n2! ...).
+- Circular arrangement of n distinct: (n-1)!.

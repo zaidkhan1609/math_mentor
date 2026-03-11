@@ -1,0 +1,34 @@
+JEE-STYLE LINEAR ALGEBRA BASICS — MATRICES AND DETERMINANTS
+
+Matrices (definitions and operations)
+- Matrix of order m×n: m rows, n columns. Addition and subtraction: same order, element-wise.
+- Scalar multiplication: multiply each entry by scalar. Matrix multiplication: A(m×n) B(n×p) = C(m×p); (i,j) entry of C = row i of A · column j of B.
+- AB may exist while BA does not; in general AB ≠ BA. (AB)C = A(BC); A(B+C) = AB + AC.
+
+Transpose and symmetric matrices
+- Transpose A^T: (i,j) entry of A^T = (j,i) entry of A. (A^T)^T = A; (AB)^T = B^T A^T.
+- A is symmetric if A^T = A (square matrix). A is skew-symmetric if A^T = -A; diagonal entries must be 0.
+
+Determinants
+- Determinant of 2×2: |a b; c d| = ad - bc. For 3×3: use Sarrus or expansion along row/column.
+- det(AB) = det(A) det(B). det(A^T) = det(A). If A has a row/column of zeros, det(A) = 0.
+- Interchanging two rows (or columns) multiplies det by -1. Multiplying a row by k multiplies det by k. Adding a multiple of one row to another does not change det.
+- A invertible ⟺ det(A) ≠ 0. det(A^{-1}) = 1/det(A).
+
+Inverse of a matrix
+- A^{-1} exists iff det(A) ≠ 0. For 2×2: A = [a b; c d], A^{-1} = (1/(ad-bc)) [d -b; -c a].
+- (AB)^{-1} = B^{-1} A^{-1}. (A^T)^{-1} = (A^{-1})^T. Solving AX = B: X = A^{-1} B.
+
+System of linear equations
+- System AX = B. Unique solution iff A is invertible, then X = A^{-1} B.
+- For homogeneous system AX = 0: always has trivial solution x = 0; non-trivial solution exists iff det(A) = 0 (infinite solutions for n×n).
+- Cramer's rule: for n×n system AX = B with det(A) ≠ 0, x_j = det(A_j)/det(A) where A_j is A with j-th column replaced by B.
+
+Rank of a matrix
+- Rank = maximum number of linearly independent rows (or columns). Row rank = column rank.
+- For square A: A invertible ⟺ rank(A) = n. Rank is unchanged by elementary row operations.
+
+Eigenvalues and eigenvectors (basics for JEE)
+- λ is eigenvalue of A if Av = λv for some non-zero v; v is eigenvector. Equation: det(A - λI) = 0 gives eigenvalues.
+- For 2×2 matrix, characteristic equation: λ² - (trace)λ + det = 0. Sum of eigenvalues = trace, product = det.
+- Use for diagonalization and solving recurrence or differential systems at JEE level.
